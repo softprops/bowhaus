@@ -11,15 +11,16 @@ import org.json4s.native.JsonMethods._
 import bowhaus.Conversions._
 
 object Endpoints {
-  def apply(storePrefix: String): netty.async.Plan =
-    new Endpoints(storePrefix)
+  def apply(packageStores: PackageStores, redisPrefix: String): netty.async.Plan =
+    new Endpoints(packageStores, redisPrefix)
 }
 
-class Endpoints(storePrefix: String) extends netty.async.Plan
+class Endpoints(packageStores: PackageStores, redisPrefix: String)
+  extends netty.async.Plan
   with netty.ServerErrorResponse {
   val one = PackageConversion
   val many = PackagesConversion
-  val packages = Packages(storePrefix)
+  val packages = Packages(packageStores, redisPrefix)
   def json(jv: JValue) = JsonContent ~> ResponseString(compact(render(jv)))
   import QParams._
   def intent =  {
@@ -29,8 +30,8 @@ class Endpoints(storePrefix: String) extends netty.async.Plan
         url  <- lookup("url") is required()
       } yield {
         packages.create(name.get, url.get).map(
-          _.fold({ e => r.respond(Conflict ~> ResponseString(e)) },
-                 { e => r.respond(Created ~> ResponseString(e)) })
+          _.fold({ e => r.respond(Conflict) },
+                 { e => r.respond(Created) })
         )
       }
       expected(params).orFail {
