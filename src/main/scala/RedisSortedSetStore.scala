@@ -51,17 +51,17 @@ class RedisSortedSetStore(client: Client)
     override def close = client.release
 }
 
-/**
- * A member-oriented view of a redis sorted set bound to a specific
- * set. Keys represent members. Values represent the members score
- * within the given set.
+/** An unpivoted-like member-oriented view of a redis sorted set bound to a specific
+ *  set. Keys represent members. Values represent the members score
+ *  within the given set. Work is delegated to an underlying
+ *  RedisSortedSetMembershipStore. For multiPuts containing deletes, it is more
+ *  efficient to use a RedisSortedSetMembershipStore directly.
  *
- * These stores also have mergeable semantics via zIncrBy for a member's
- * score
+ *  These stores also have mergeable semantics via zIncrBy for a member's
+ *  score.
  */
 class RedisSortedSetMembershipView(client: Client, set: ChannelBuffer)
-  extends Store[ChannelBuffer, Double]
-     with MergeableStore[ChannelBuffer, Double] {
+  extends MergeableStore[ChannelBuffer, Double] {
    private lazy val underlying = new RedisSortedSetMembershipStore(client)
    val monoid = implicitly[Monoid[Double]]
 
@@ -77,7 +77,7 @@ class RedisSortedSetMembershipView(client: Client, set: ChannelBuffer)
   override def close = client.release
 }
 
-/** A member-oriented view of redis sorted sets.
+/** An unpivoted-like member-oriented view of redis sorted sets.
  *  Keys represent the both a name of the set and the member.
  *  Values represent the member's current score within a set.
  *  An absent score also indicates an absence of membership in the set.
@@ -86,27 +86,42 @@ class RedisSortedSetMembershipView(client: Client, set: ChannelBuffer)
  *  score
  */
 class RedisSortedSetMembershipStore(client: Client)
-  extends Store[(ChannelBuffer, ChannelBuffer), Double] 
-     with MergeableStore[(ChannelBuffer, ChannelBuffer), Double] {
+  extends MergeableStore[(ChannelBuffer, ChannelBuffer), Double] {
    val monoid = implicitly[Monoid[Double]]
 
    /** @return a member's score or None if the member is not in the set */
    override def get(k: (ChannelBuffer, ChannelBuffer)): Future[Option[Double]] =
      client.zScore(k._1, k._1).map(_.map(_.toDouble))
    
+   // generalized enough to go into UnpivotOpts
+   /** Partitions a map of multiPut pivoted values into
+    *  a two item tuple of deletes and sets, multimapped
+    *  by OutterK values.
+    *
+    *  This makes partioning deletes and sets for pivoted multiPuts
+    *  easier for stores that can perform batch operations on collections
+    *  of InnerK values keyed by OutterK where V indicates membership
+    *  of InnerK within OutterK
+    */
+   def multiPutPartitioned[OutterK, InnerK, K1 <: (OutterK, InnerK), V](kv: Map[K1, Option[V]]):
+    (Map[OutterK, List[(K1, Option[V])]], Map[OutterK, List[(K1, Option[V])]]) = {
+      def emptyMap = Map.empty[OutterK, List[(K1, Option[V])]].withDefaultValue(Nil)
+      ((emptyMap, emptyMap) /: kv) {
+       case ((deleting, storing), (key, value @ Some(_))) =>
+         (deleting, storing.updated(key._1, (key, value) :: storing(key._1)))
+       case ((deleting, storing), (key, _)) =>
+         (deleting.updated(key._1, (key, None) :: deleting(key._1)), storing)
+      }
+    }
+
    /** Adds or removes members from sets with an initial scoring. A score of None indicates the
     *  member should be removed from the set */
    override def multiPut[K1 <: (ChannelBuffer, ChannelBuffer)](kv: Map[K1, Option[Double]]): Map[K1, Future[Unit]]  = {
      // we are exploiting redis's built-in support for removals (zRem)
      // by partioning deletions and updates into 2 maps indexed by the first
      // component of the composite key, the key of the set
-     def emptyMap = Map.empty[ChannelBuffer, List[(K1, Double)]].withDefaultValue(Nil)
-     val (del, persist) = ((emptyMap, emptyMap) /: kv) {
-       case ((deleting, storing), (key, Some(score))) =>
-         (deleting, storing.updated(key._1, (key, score) :: storing(key._1)))
-       case ((deleting, storing), (key, None)) =>
-         (deleting.updated(key._1, (key, 0.0) :: deleting(key._1)), storing)
-     }
+     // note: let's try to generalize this
+     val (del, persist) = multiPutPartitioned[ChannelBuffer, ChannelBuffer, K1, Double](kv)
      (del.map {
        case (k, members) =>
          val value = client.zRem(k, members.map(_._1._2))
@@ -115,7 +130,8 @@ class RedisSortedSetMembershipStore(client: Client)
        case (k, members) =>
          members.map {
            case (k1, score) =>
-             (k1 -> client.zAdd(k, score, k1._2).unit)
+             // a per-InnerK operation
+             (k1 -> client.zAdd(k, score.get, k1._2).unit)
          }
      }.flatten).toMap
    }
