@@ -74,7 +74,7 @@ class RedisSortedSetMembershipView(client: Client, set: ChannelBuffer)
    override def merge(kv: (ChannelBuffer, Double)): Future[Unit] =
      underlying.merge((set, kv._1), kv._2)
 
-  override def close = client.release
+  override def close = underlying.close
 }
 
 /** An unpivoted-like member-oriented view of redis sorted sets.
