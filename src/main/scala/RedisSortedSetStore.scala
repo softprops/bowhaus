@@ -87,30 +87,33 @@ class RedisSortedSetMembershipView(client: Client, set: ChannelBuffer)
  */
 class RedisSortedSetMembershipStore(client: Client)
   extends MergeableStore[(ChannelBuffer, ChannelBuffer), Double] {
-   val monoid = implicitly[Monoid[Double]]
+  val monoid = implicitly[Monoid[Double]]
 
-   /** @return a member's score or None if the member is not in the set */
-   override def get(k: (ChannelBuffer, ChannelBuffer)): Future[Option[Double]] =
-     client.zScore(k._1, k._1).map(_.map(_.toDouble))
+  /** @return a member's score or None if the member is not in the set */
+  override def get(k: (ChannelBuffer, ChannelBuffer)): Future[Option[Double]] =
+    client.zScore(k._1, k._1).map(_.map(_.toDouble))
    
-   // generalized enough to go into UnpivotOpts
    /** Partitions a map of multiPut pivoted values into
     *  a two item tuple of deletes and sets, multimapped
-    *  by OutterK values.
+    *  by a key compluted from K1.
     *
     *  This makes partioning deletes and sets for pivoted multiPuts
     *  easier for stores that can perform batch operations on collections
     *  of InnerK values keyed by OutterK where V indicates membership
-    *  of InnerK within OutterK
+    *  of InnerK within OutterK.
+    * 
+    *  ( general enough to go into PivotOpts )
     */
-   def multiPutPartitioned[OutterK, InnerK, K1 <: (OutterK, InnerK), V](kv: Map[K1, Option[V]]):
-    (Map[OutterK, List[(K1, Option[V])]], Map[OutterK, List[(K1, Option[V])]]) = {
-      def emptyMap = Map.empty[OutterK, List[(K1, Option[V])]].withDefaultValue(Nil)
+   def multiPutPartitioned[OutterK, InnerK, K1 <: (OutterK, InnerK), V, IndexK](kv: Map[K1, Option[V]])(by: K1 => IndexK):
+    (Map[IndexK, List[(K1, Option[V])]], Map[IndexK, List[(K1, Option[V])]]) = {
+      def emptyMap = Map.empty[IndexK, List[(K1, Option[V])]].withDefaultValue(Nil)
       ((emptyMap, emptyMap) /: kv) {
        case ((deleting, storing), (key, value @ Some(_))) =>
-         (deleting, storing.updated(key._1, (key, value) :: storing(key._1)))
+         val index = by(key)
+         (deleting, storing.updated(index, (key, value) :: storing(index)))
        case ((deleting, storing), (key, _)) =>
-         (deleting.updated(key._1, (key, None) :: deleting(key._1)), storing)
+         val index = by(key)
+         (deleting.updated(index, (key, None) :: deleting(index)), storing)
       }
     }
 
@@ -121,7 +124,7 @@ class RedisSortedSetMembershipStore(client: Client)
      // by partioning deletions and updates into 2 maps indexed by the first
      // component of the composite key, the key of the set
      // note: let's try to generalize this
-     val (del, persist) = multiPutPartitioned[ChannelBuffer, ChannelBuffer, K1, Double](kv)
+     val (del, persist) = multiPutPartitioned[ChannelBuffer, ChannelBuffer, K1, Double, ChannelBuffer](kv)(_._1)
      (del.map {
        case (k, members) =>
          val value = client.zRem(k, members.map(_._1._2))
@@ -136,9 +139,9 @@ class RedisSortedSetMembershipStore(client: Client)
      }.flatten).toMap
    }
 
-    /** Performs an zIncrBy operation on a set for a given member */
-    override def merge(kv: ((ChannelBuffer, ChannelBuffer), Double)): Future[Unit] =
-      client.zIncrBy(kv._1._1, kv._2, kv._1._2).unit
+   /** Performs an zIncrBy operation on a set for a given member */
+   override def merge(kv: ((ChannelBuffer, ChannelBuffer), Double)): Future[Unit] =
+     client.zIncrBy(kv._1._1, kv._2, kv._1._2).unit
 
-    override def close = client.release
+   override def close = client.release
 }
