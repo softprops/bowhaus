@@ -95,7 +95,7 @@ class RedisSortedSetMembershipStore(client: Client)
    
    /** Partitions a map of multiPut pivoted values into
     *  a two item tuple of deletes and sets, multimapped
-    *  by a key compluted from K1.
+    *  by a key computed from K1.
     *
     *  This makes partioning deletes and sets for pivoted multiPuts
     *  easier for stores that can perform batch operations on collections
