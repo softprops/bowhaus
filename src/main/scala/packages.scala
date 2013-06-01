@@ -35,7 +35,10 @@ class Packages(stores: PackageStores, prefix: String) {
 
   def get(name: String): Future[Option[Package]] =
     stores.packageUrls.get((pk(name), "url")).map(
-      _.map(url => Package(name, url))
+      _.map { url =>
+        stores.packageHits.merge(((hk, pk(name)), 1))
+        Package(name, url)
+      }
     )
 
   def list: Future[Iterable[Package]] =
