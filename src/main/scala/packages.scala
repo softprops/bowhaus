@@ -39,15 +39,14 @@ class Packages(stores: PackageStores, prefix: String) {
     )
 
   def list: Future[Iterable[Package]] =
-    stores.hits.get(hk).flatMap({ mhs =>
-      val pkgs: Option[Future[Iterable[Package]]] = mhs.map({ hs =>
+    stores.hits.get(hk).flatMap({
+      _.map({ hs =>
         FutureOps.mapCollect(stores.packageUrls.multiGet(hs.map { case (key, _) => (key, "url") }.toSet))
                  .map((_.map({
                    case ((key, _), Some(url)) => Some(Package(key, url))
                    case _ => None
                  }).flatten))
-      })
-      pkgs.getOrElse(Future.value(Nil))
+      }).getOrElse(Future.value(Nil))
     })
 
   def like(name: String): Future[Iterable[Package]] =

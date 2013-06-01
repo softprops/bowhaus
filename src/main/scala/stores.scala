@@ -7,6 +7,7 @@ import com.twitter.storehaus._
 import com.twitter.storehaus.redis._
 import org.jboss.netty.buffer.ChannelBuffer
 
+/** provides access to package related stores */
 trait PackageStores {
   def packages: Store[String, Map[String, String]]
   def packageUrls: Store[(String, String), String]
@@ -28,6 +29,7 @@ class RedisPackageStores(redisHost: String) extends PackageStores {
   val packageHits: Store[(String, String), Double] =
     RedisSortedSetStore(cli).members
       .convert({ case (set, member) => (StringToChannelBuffer(set), StringToChannelBuffer(member)) })
-  def shutdown =
-    cli.release()
+
+  /** shutdown the stores */
+  def shutdown = cli.release
 }

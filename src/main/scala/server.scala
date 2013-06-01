@@ -30,7 +30,7 @@ object Server {
       Http(conf.serverPort)
         .plan(Endpoints(stores, conf.redisPrefix))
         .beforeStop {
-          stores.shutdown()
+          stores.shutdown
         }
         .run()
     } getOrElse {
