@@ -108,12 +108,12 @@ class RedisSortedSetMembershipStore(client: Client)
     (Map[IndexK, List[(K1, Option[V])]], Map[IndexK, List[(K1, Option[V])]]) = {
       def emptyMap = Map.empty[IndexK, List[(K1, Option[V])]].withDefaultValue(Nil)
       ((emptyMap, emptyMap) /: kv) {
-       case ((deleting, storing), (key, value @ Some(_))) =>
-         val index = by(key)
-         (deleting, storing.updated(index, (key, value) :: storing(index)))
-       case ((deleting, storing), (key, _)) =>
-         val index = by(key)
-         (deleting.updated(index, (key, None) :: deleting(index)), storing)
+        case ((deleting, storing), (key, value @ Some(_))) =>
+          val index = by(key)
+          (deleting, storing.updated(index, (key, value) :: storing(index)))
+        case ((deleting, storing), (key, _)) =>
+          val index = by(key)
+          (deleting.updated(index, (key, None) :: deleting(index)), storing)
       }
     }
 
