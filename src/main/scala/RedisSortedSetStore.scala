@@ -40,11 +40,11 @@ class RedisSortedSetStore(client: Client)
           client.del(Seq(set)).unit
       }
 
-    /** projects a view of this set's members */
+    /** @return a mergeable store backed by redis with this store's client */
     def members: MergeableStore[(ChannelBuffer, ChannelBuffer), Double] =
       new RedisSortedSetMembershipStore(client)
 
-    /** project a view of this set's members */
+    /** @return a mergeable store for a given set with this store's client */
     def members(set: ChannelBuffer): MergeableStore[ChannelBuffer, Double] =
       new RedisSortedSetMembershipView(client, set)
 
