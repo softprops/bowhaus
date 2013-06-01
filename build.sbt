@@ -4,6 +4,8 @@ version := "0.1.0-SNAPSHOT"
 
 description := "a jvm hausing for bower components"
 
+scalacOptions ++= Seq("-feature", "-deprecation")
+
 scalaVersion := "2.10.0"
 
 libraryDependencies += "net.databinder" %% "unfiltered-netty-server" % "0.6.8"
