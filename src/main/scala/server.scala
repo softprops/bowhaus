@@ -7,7 +7,7 @@ object Server {
   private case class Config(
     serverPort: Int = sys.env.getOrElse("BOWHAUS_PORT", "8080").toInt,
     redisHost: String = sys.env.getOrElse("BOWHAUS_REDIS", "localhost:6379"),
-    redisPrefix: String = sys.env.getOrElse("BOWHAUS_PREFIX", "testing")) {
+    redisPrefix: String = sys.env.getOrElse("BOWHAUS_NAMESPACE", "testing")) {
     def parse(a: Array[String]) =
       new OptionParser[Config] {
         def options = Seq(
@@ -17,7 +17,7 @@ object Server {
           opt("r", "redis", "redis host") {
             (h, c) => c.copy(redisHost = h)
           },
-          opt("p", "prefix", "prefix for redis keys") {
+          opt("n", "namespace", "prefix for redis keys") {
             (p, c) => c.copy(redisPrefix = p)
           }
         )
