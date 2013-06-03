@@ -42,7 +42,7 @@ This will return a `201` ( created )  status. If a component with the same name 
 
 ```bash
 curl 'http://localhost:8080/packages'
-``
+```
 
 This will list all of the registered components in json format
 
