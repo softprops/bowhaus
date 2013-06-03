@@ -1,3 +1,9 @@
+import AssemblyKeys._ // put this at the top of the file
+
+assemblySettings
+
+jarName in assembly := "bowhaus.jar"
+
 name := "bowhaus"
 
 version := "0.1.0-SNAPSHOT"
