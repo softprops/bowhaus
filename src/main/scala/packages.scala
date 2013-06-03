@@ -1,5 +1,6 @@
 package bowhaus
 
+import java.net.URI
 import java.util.Date
 
 import com.twitter.bijection._
@@ -20,12 +21,12 @@ class Packages(stores: PackageStores, prefix: String) {
   private val hk = "%s:bowhaus:hits" format(prefix)
   private def pk(name: String) = "%s:bowhaus:packages:%s" format(prefix, name)
 
-  def create(name: String, url: String): Future[Either[String, String]] =
+  def create(name: String, url: URI): Future[Either[String, String]] =
     stores.packages.get(pk(name)).flatMap(
       _.map(_ => Future.value(Left("package already exists")))
        .getOrElse(
          stores.packages.put((pk(name), Some(
-           Map("url" -> url, "created_at" -> new Date().getTime.toString))))
+           Map("url" -> url.toString, "created_at" -> new Date().getTime.toString))))
            .flatMap({
              _ =>
                stores.packageHits.put(((hk, pk(name)), Some(0)))
