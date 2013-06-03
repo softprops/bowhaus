@@ -20,9 +20,11 @@ among other things
 java -jar bowhaus.jar -p <port> -r <redis_connection_string> -n <redis_key_prefix>
 ```
 
-`-p` tells bowhaus which port to listen on as an http server
-`-r` tells bowhaus how to connect to redis
-`-n` provides a namespace which is prefixed on all generated redis keys
+`-p` tells bowhaus which port to listen on as an http server ( defaults to `8080` )
+
+`-r` tells bowhaus how to connect to redis ( defaults to the factory defaults for `redis-server` )
+
+`-n` provides a namespace which is prefixed on all generated redis keys ( defaults to `testing`)
 
 ## usage
 
