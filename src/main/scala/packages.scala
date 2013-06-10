@@ -4,7 +4,7 @@ import java.net.URI
 import java.util.Date
 
 import com.twitter.bijection._
-import com.twitter.util.Future
+import com.twitter.util.{ Await, Future }
 import com.twitter.storehaus._
 import com.twitter.storehaus.redis._
 
@@ -24,6 +24,15 @@ class Packages(stores: PackageStores, prefix: String) {
 
   private def unprefix(key: String) =
     key.replace(packagePrefix, "")
+
+  // for admin eyes only
+  object admin {
+    def unregister(name: String) = Await.result(Future.join(
+      // delete hits
+      stores.packageHits.put(((hk, pk(name)), None)),
+      // delete package
+      stores.packages.put((pk(name), None))))
+  }
 
   def create(name: String, url: URI): Future[Either[String, String]] =
     stores.packages.get(pk(name)).flatMap(
