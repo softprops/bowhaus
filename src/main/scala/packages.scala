@@ -19,7 +19,11 @@ class Packages(stores: PackageStores, prefix: String) {
   import bowhaus.Bijections._
 
   private val hk = "%s:bowhaus:hits" format(prefix)
-  private def pk(name: String) = "%s:bowhaus:packages:%s" format(prefix, name)
+  private val packagePrefix = "%s:bowhaus:packages:" format prefix
+  private def pk(name: String) = "%s%s" format(packagePrefix, name)
+
+  private def unprefix(key: String) =
+    key.replace(packagePrefix, "")
 
   def create(name: String, url: URI): Future[Either[String, String]] =
     stores.packages.get(pk(name)).flatMap(
@@ -47,7 +51,7 @@ class Packages(stores: PackageStores, prefix: String) {
       _.map({ hs =>
         FutureOps.mapCollect(stores.packageUrls.multiGet(hs.map { case (key, _) => (key, "url") }.toSet))
                  .map((_.map({
-                   case ((key, _), Some(url)) => Some(Package(key, url))
+                   case ((key, _), Some(url)) => Some(Package(unprefix(key), url))
                    case _ => None
                  }).flatten))
       }).getOrElse(Future.value(Nil))
