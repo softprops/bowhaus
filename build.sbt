@@ -2,11 +2,11 @@ import AssemblyKeys._ // put this at the top of the file
 
 assemblySettings
 
-jarName in assembly := "bowhaus.jar"
-
 name := "bowhaus"
 
-version := "0.1.0-SNAPSHOT"
+version := "0.1.1"
+
+jarName in assembly <<= (version).map { v => "bowhaus-%s.jar" format(v) }
 
 description := "a jvm hausing for bower components"
 
